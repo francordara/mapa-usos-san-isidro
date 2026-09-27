@@ -168,6 +168,27 @@
   .combo-empty{ padding:12px 13px; font-size:13px; color:var(--ink-dim); }
   .combo-hint{ font-size:11.5px; color:var(--ink-dim); margin:-8px 0 14px; line-height:1.5; }
 
+  .addr-search{ display:flex; gap:8px; margin-bottom:8px; }
+  .addr-search input{
+    flex:1; font-family:inherit; font-size:14.5px; padding:11px 13px;
+    border-radius:10px; border:1px solid var(--panel-border);
+    background:var(--bg); color:var(--ink); outline:none;
+  }
+  .addr-search input:focus{ border-color:var(--accent); }
+  .addr-search button{
+    font-family:inherit; font-size:13.5px; font-weight:600; padding:0 16px;
+    border-radius:10px; border:none; background:var(--accent); color:var(--accent-ink);
+    cursor:pointer;
+  }
+  .addr-search button:hover{ opacity:.9; }
+  .addr-status{
+    font-size:12px; line-height:1.5; padding:9px 11px; border-radius:9px;
+    margin-bottom:16px; background:var(--bg); border:1px solid var(--panel-border); color:var(--ink-dim);
+  }
+  .addr-status.ok{ background:var(--permitido-bg); color:var(--permitido); border-color:transparent; }
+  .addr-status.warn{ background:var(--restringido-bg); color:var(--restringido); border-color:transparent; }
+  .addr-status.err{ background:var(--bg); color:var(--ink-dim); }
+
   .stat-card{
     background:var(--bg);
     border:1px solid var(--panel-border);
@@ -267,6 +288,7 @@
   .zona-path.z-sincuadro{ fill:var(--sin-cuadro); }
   .zona-path:hover{ filter:brightness(1.08); stroke-width:1.4; }
   .zona-path.zona-selected{ stroke:var(--accent); stroke-width:2.4; }
+  .addr-marker{ fill:var(--accent); stroke:var(--panel); stroke-width:1.4; pointer-events:none; }
 
   .map-controls{
     position:absolute; top:14px; right:14px; display:flex; flex-direction:column; gap:6px;
@@ -345,13 +367,20 @@
 
     <!-- TAB: ZONA -->
     <div class="tab-panel" id="tab-zona">
-      <label class="field-label" for="zona-input">Código de zona</label>
+      <label class="field-label" for="addr-input">Buscar por dirección</label>
+      <div class="addr-search">
+        <input id="addr-input" type="text" placeholder="Calle y altura, ej: Av. del Libertador 15000" autocomplete="off">
+        <button id="addr-btn" type="button">Buscar</button>
+      </div>
+      <div id="addr-status" class="addr-status" hidden></div>
+
+      <label class="field-label" for="zona-input">O por código de zona</label>
       <div class="combo">
         <input id="zona-input" type="text" placeholder="Buscar zona… (ej: Rm1, Cma3, Ca1)" autocomplete="off">
         <button class="clear-btn" id="zona-clear-btn" title="Limpiar" hidden>&times;</button>
         <div class="combo-list" id="zona-combo-list"></div>
       </div>
-      <p class="combo-hint">O hacé click directamente sobre una zona en el mapa. Para buscar por dirección: hacé click en el mapa sobre el punto que te interesa (no es posible geolocalizar una dirección escrita dentro de esta página).</p>
+      <p class="combo-hint">O hacé click directamente sobre una zona en el mapa.</p>
 
       <div id="zona-empty-hint" class="empty-hint">
         Todavía no elegiste una zona. Hacé click en el mapa o buscá un código de zona arriba para ver qué rubros se pueden habilitar ahí.
@@ -396,7 +425,7 @@
 <script>
 (function(){
   var svgNS = "http://www.w3.org/2000/svg";
-  var mapaData = null, svgData = null, zoneIndexData = null;
+  var mapaData = null, svgData = null, zoneIndexData = null, geoData = null;
   var svgEl = document.getElementById('mapa');
   var tooltip = document.getElementById('tooltip');
   var mapWrap = document.getElementById('map-wrap');
@@ -404,6 +433,16 @@
   var pathEls = []; // {el, f}
   var zonaEstadoMap = {}; // zona code -> estado_normalizacion
   var dragMoved = false;
+  var mapGoTo = null; // set by setupPanZoom
+  var addrMarkerEl = null;
+  var geoProj = null; // {minx, miny, scale, targetH}
+
+  // Local equirectangular projection, must match the one used to pre-project the SVG
+  // (project_svg.py) so lon/lat -> SVG coordinates line up with the drawn polygons.
+  var REF_LAT = -34.47;
+  var _latRad = REF_LAT * Math.PI / 180;
+  var M_PER_DEG_LON = 111412.84*Math.cos(_latRad) - 93.5*Math.cos(3*_latRad);
+  var M_PER_DEG_LAT = 111132.92 - 559.82*Math.cos(2*_latRad) + 1.175*Math.cos(4*_latRad);
 
   function escapeHtml(s){ return String(s).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
   function escapeAttr(s){ return escapeHtml(s).replace(/"/g, '&quot;'); }
@@ -418,16 +457,20 @@
   Promise.all([
     fetchJSON('data/zonas_svg.json'),
     fetchJSON('data/mapa_data.json'),
-    fetchJSON('data/zone_index.json')
+    fetchJSON('data/zone_index.json'),
+    fetchJSON('data/zonas_geo.json')
   ]).then(function(results){
     svgData = results[0];
     mapaData = results[1];
     zoneIndexData = results[2];
+    geoData = results[3];
     buildMap();
     buildCombo();
     buildZonaCombo();
     buildRanking();
     setupTabs();
+    setupAddressSearch();
+    computeGeoProjection();
   }).catch(function(err){
     document.getElementById('empty-hint').textContent = 'Error cargando los datos del mapa: ' + err.message;
   });
@@ -464,6 +507,11 @@
       pathEls.push({el:p, f:f});
     });
     svgEl.appendChild(frag);
+    addrMarkerEl = document.createElementNS(svgNS, 'circle');
+    addrMarkerEl.setAttribute('class', 'addr-marker');
+    addrMarkerEl.setAttribute('r', '4');
+    addrMarkerEl.style.display = 'none';
+    svgEl.appendChild(addrMarkerEl);
     setupPanZoom();
   }
 
@@ -665,6 +713,10 @@
       body.innerHTML = '<p class="zona-note">Esta zona (' + escapeHtml(zonaCode) + ') no tiene columna propia en el Cuadro de Usos: se rige por su propia Hoja de Zona (régimen particular). Consultar el texto completo del Código de Ordenamiento Urbano para esta zona.</p>';
       return;
     }
+    if(zonaEstadoMap[zonaCode] === 'no_identificado'){
+      body.innerHTML = '<p class="zona-note">Esta zona (' + escapeHtml(zonaCode) + ') tiene un código ambiguo en la cartografía oficial y no pudo asociarse con certeza a una columna del Cuadro de Usos. No hay datos de rubros para mostrar acá.</p>';
+      return;
+    }
 
     var groups = [];
     if(zonaCode === 'Cma3'){
@@ -801,6 +853,12 @@
     document.getElementById('zoom-out').addEventListener('click', function(){ zoomAt(1.25, view.x+view.w/2, view.y+view.h/2); });
     document.getElementById('zoom-reset').addEventListener('click', function(){ view = {x:home.x,y:home.y,w:home.w,h:home.h}; apply(); });
 
+    mapGoTo = function(x, y){
+      var nw = home.w * 0.1, nh = nw * (home.h/home.w);
+      view = {x: x - nw/2, y: y - nh/2, w: nw, h: nh};
+      apply();
+    };
+
     function toSvgPoint(clientX, clientY){
       var rect = svgEl.getBoundingClientRect();
       var px = (clientX - rect.left) / rect.width;
@@ -858,6 +916,114 @@
     }, {passive:true});
     svgEl.addEventListener('touchend', function(){ touchState = null; });
     function dist(a,b){ return Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY); }
+  }
+
+  // ---- lon/lat -> svg projection (must mirror project_svg.py) ----
+  function computeGeoProjection(){
+    var minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+    geoData.features.forEach(function(f){
+      f.geometry.coordinates.forEach(function(ring){
+        ring.forEach(function(pt){
+          var x = pt[0]*M_PER_DEG_LON, y = pt[1]*M_PER_DEG_LAT;
+          if(x<minx) minx=x; if(x>maxx) maxx=x;
+          if(y<miny) miny=y; if(y>maxy) maxy=y;
+        });
+      });
+    });
+    var targetW = svgData.viewbox[2], targetH = svgData.viewbox[3];
+    geoProj = { minx: minx, miny: miny, scale: targetW/(maxx-minx), targetH: targetH };
+  }
+  function lonLatToSvg(lon, lat){
+    var x = (lon*M_PER_DEG_LON - geoProj.minx) * geoProj.scale;
+    var y = geoProj.targetH - (lat*M_PER_DEG_LAT - geoProj.miny) * geoProj.scale;
+    return {x:x, y:y};
+  }
+
+  // ---- point in polygon (ray casting), with hole support ----
+  function pointInRing(lon, lat, ring){
+    var inside = false;
+    for(var i=0, j=ring.length-1; i<ring.length; j=i++){
+      var xi = ring[i][0], yi = ring[i][1];
+      var xj = ring[j][0], yj = ring[j][1];
+      var intersect = ((yi > lat) !== (yj > lat)) &&
+        (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+      if(intersect) inside = !inside;
+    }
+    return inside;
+  }
+  function findFeatureAt(lon, lat){
+    for(var i=0; i<geoData.features.length; i++){
+      var f = geoData.features[i];
+      var rings = f.geometry.coordinates;
+      if(!pointInRing(lon, lat, rings[0])) continue;
+      var inHole = false;
+      for(var h=1; h<rings.length; h++){
+        if(pointInRing(lon, lat, rings[h])){ inHole = true; break; }
+      }
+      if(!inHole) return f;
+    }
+    return null;
+  }
+
+  // ---- address search (Georef API — Argentina's official geocoding service) ----
+  function geocodeDireccion(direccion){
+    var params = new URLSearchParams({
+      direccion: direccion,
+      provincia: 'Buenos Aires',
+      departamento: 'San Isidro',
+      max: '1',
+      campos: 'estandar'
+    });
+    return fetch('https://apis.datos.gob.ar/georef/api/direcciones?' + params.toString())
+      .then(function(r){
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(data){
+        if(!data.direcciones || !data.direcciones.length) throw new Error('SIN_RESULTADOS');
+        return data.direcciones[0];
+      });
+  }
+
+  function setupAddressSearch(){
+    var input = document.getElementById('addr-input');
+    var btn = document.getElementById('addr-btn');
+    var status = document.getElementById('addr-status');
+
+    function run(){
+      var q = input.value.trim();
+      if(!q) return;
+      status.hidden = false;
+      status.className = 'addr-status';
+      status.textContent = 'Buscando dirección…';
+      geocodeDireccion(q).then(function(dir){
+        var lat = dir.ubicacion.lat, lon = dir.ubicacion.lon;
+        var pt = lonLatToSvg(lon, lat);
+        addrMarkerEl.setAttribute('cx', pt.x);
+        addrMarkerEl.setAttribute('cy', pt.y);
+        addrMarkerEl.style.display = 'block';
+        if(mapGoTo) mapGoTo(pt.x, pt.y);
+
+        var f = findFeatureAt(lon, lat);
+        if(f){
+          status.className = 'addr-status ok';
+          status.textContent = 'Encontrado: ' + (dir.nomenclatura || q);
+          onZonaClicked(f.properties);
+        } else {
+          status.className = 'addr-status warn';
+          status.textContent = 'Encontramos "' + (dir.nomenclatura || q) + '" pero cae fuera de las zonas mapeadas.';
+        }
+      }).catch(function(err){
+        status.className = 'addr-status err';
+        if(err.message === 'SIN_RESULTADOS'){
+          status.textContent = 'No se encontró esa dirección en San Isidro. Probá con el formato "Calle Altura", ej: "Av. del Libertador 15000".';
+        } else {
+          status.textContent = 'No se pudo consultar el servicio de direcciones (' + err.message + '). Si estás viendo esto en la vista previa de Claude, es esperado: esta función solo funciona una vez publicada la página (por ejemplo en GitHub Pages), porque el entorno de vista previa bloquea llamadas a servicios externos.';
+        }
+      });
+    }
+    btn.addEventListener('click', run);
+    input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); run(); } });
   }
 })();
 </script>
