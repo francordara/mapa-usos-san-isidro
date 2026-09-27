@@ -1,0 +1,863 @@
+<title>Zonificación San Isidro</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+  :root{
+    --bg: #f6f4ee;
+    --panel: #ffffff;
+    --panel-border: #ded8c8;
+    --ink: #23281f;
+    --ink-dim: #635f52;
+    --accent: #0f5c56;
+    --accent-ink: #ffffff;
+    --accent-soft: #e2efec;
+    --permitido: #2f8f5b;
+    --permitido-bg: #d9ede0;
+    --restringido: #c8862a;
+    --restringido-bg: #f5e6cd;
+    --no-permitido: #cfc9b8;
+    --sin-cuadro: #b9a7c9;
+    --map-bg: #eae6d9;
+    --map-line: #ffffff;
+    --shadow: 0 1px 2px rgba(30,26,10,.06), 0 8px 24px -12px rgba(30,26,10,.18);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #14171b;
+      --panel: #1b1f24;
+      --panel-border: #2c3137;
+      --ink: #e8e6df;
+      --ink-dim: #9a9d9f;
+      --accent: #57c2b3;
+      --accent-ink: #0b1513;
+      --accent-soft: #1c2d2b;
+      --permitido: #4cae7c;
+      --permitido-bg: #1b3327;
+      --restringido: #e0a94c;
+      --restringido-bg: #362a13;
+      --no-permitido: #34383d;
+      --sin-cuadro: #8a76a3;
+      --map-bg: #1e2227;
+      --map-line: #14171b;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg: #14171b;
+    --panel: #1b1f24;
+    --panel-border: #2c3137;
+    --ink: #e8e6df;
+    --ink-dim: #9a9d9f;
+    --accent: #57c2b3;
+    --accent-ink: #0b1513;
+    --accent-soft: #1c2d2b;
+    --permitido: #4cae7c;
+    --permitido-bg: #1b3327;
+    --restringido: #e0a94c;
+    --restringido-bg: #362a13;
+    --no-permitido: #34383d;
+    --sin-cuadro: #8a76a3;
+    --map-bg: #1e2227;
+    --map-line: #14171b;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Public Sans', system-ui, sans-serif;
+    margin:0;
+    height:100%;
+  }
+  html{height:100%;}
+  .app{
+    display:grid;
+    grid-template-columns: 400px 1fr;
+    height:100vh;
+    min-height:560px;
+  }
+  @media (max-width: 860px){
+    .app{ grid-template-columns: 1fr; height:auto; min-height:100vh; }
+    .map-wrap{ height:56vh; min-height:360px; }
+  }
+
+  .panel{
+    background:var(--panel);
+    border-right:1px solid var(--panel-border);
+    overflow-y:auto;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom,0px));
+  }
+  @media (max-width:860px){ .panel{ border-right:none; border-bottom:1px solid var(--panel-border); } }
+
+  h1{
+    font-family:'Fraunces', serif;
+    font-size:22px;
+    font-weight:600;
+    letter-spacing:-0.01em;
+    margin: 0 0 2px;
+  }
+  .subtitle{
+    color:var(--ink-dim);
+    font-size:12.5px;
+    margin:0 0 14px;
+    line-height:1.5;
+  }
+
+  .tabs{
+    display:flex; gap:2px; margin-bottom:16px;
+    border-bottom:1px solid var(--panel-border);
+  }
+  .tab-btn{
+    flex:1; padding:9px 4px; font-size:12.5px; font-weight:600;
+    background:none; border:none; color:var(--ink-dim); cursor:pointer;
+    border-bottom:2px solid transparent; font-family:inherit;
+    margin-bottom:-1px;
+  }
+  .tab-btn:hover{ color:var(--ink); }
+  .tab-btn.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  label.field-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--ink-dim);
+    font-weight:600;
+    display:block;
+    margin-bottom:6px;
+  }
+
+  .combo{ position:relative; margin-bottom: 14px; }
+  .combo input{
+    width:100%;
+    font-family:inherit;
+    font-size:14.5px;
+    padding:11px 36px 11px 13px;
+    border-radius:10px;
+    border:1px solid var(--panel-border);
+    background:var(--bg);
+    color:var(--ink);
+    outline:none;
+  }
+  .combo input:focus{ border-color:var(--accent); }
+  .combo .clear-btn{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    border:none; background:none; color:var(--ink-dim); font-size:18px; line-height:1;
+    cursor:pointer; padding:6px; border-radius:6px;
+  }
+  .combo .clear-btn:hover{ background:var(--accent-soft); color:var(--accent); }
+  .combo-list{
+    position:absolute; z-index:20; top:calc(100% + 4px); left:0; right:0;
+    max-height:280px; overflow-y:auto;
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:10px;
+    box-shadow:var(--shadow);
+    display:none;
+  }
+  .combo-list.open{ display:block; }
+  .combo-item{
+    padding:9px 13px; font-size:13.5px; cursor:pointer; line-height:1.35;
+    border-bottom:1px solid var(--panel-border);
+  }
+  .combo-item:last-child{ border-bottom:none; }
+  .combo-item:hover, .combo-item.active{ background:var(--accent-soft); color:var(--accent); }
+  .combo-empty{ padding:12px 13px; font-size:13px; color:var(--ink-dim); }
+  .combo-hint{ font-size:11.5px; color:var(--ink-dim); margin:-8px 0 14px; line-height:1.5; }
+
+  .stat-card{
+    background:var(--bg);
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    padding:14px 16px;
+    margin-bottom:16px;
+  }
+  .stat-title{ font-size:13px; font-weight:600; margin:0 0 10px; }
+  .bar{
+    display:flex; height:14px; border-radius:7px; overflow:hidden;
+    background:var(--no-permitido);
+    margin-bottom:10px;
+  }
+  .bar > span{ height:100%; }
+  .bar .b-ok{ background:var(--permitido); }
+  .bar .b-restr{ background:var(--restringido); }
+  .legend-rows{ display:flex; flex-direction:column; gap:6px; }
+  .legend-row{ display:flex; align-items:center; justify-content:space-between; font-size:12.5px; }
+  .legend-row .lbl{ display:flex; align-items:center; gap:7px; color:var(--ink-dim); }
+  .swatch{ width:10px; height:10px; border-radius:3px; flex:none; }
+  .pct{ font-family:'IBM Plex Mono', monospace; font-variant-numeric:tabular-nums; font-weight:600; }
+
+  .empty-hint{
+    font-size:13px; color:var(--ink-dim); line-height:1.6;
+    background:var(--bg); border:1px dashed var(--panel-border); border-radius:12px;
+    padding:16px; margin-bottom:16px;
+  }
+
+  .notes{ margin-bottom:16px; }
+  .notes h2{ font-size:13px; margin:0 0 8px; font-weight:600; }
+  .note-item{
+    font-size:12.5px; line-height:1.55; color:var(--ink-dim);
+    padding:9px 0; border-top:1px solid var(--panel-border);
+  }
+  .note-item:first-child{ border-top:none; }
+  .note-item b{ color:var(--ink); font-family:'IBM Plex Mono', monospace; }
+
+  .footer-note{
+    margin-top:24px; padding-top:14px; border-top:1px solid var(--panel-border);
+    font-size:11px; color:var(--ink-dim); line-height:1.6;
+  }
+  .footer-note a{ color: var(--accent); }
+
+  /* zona tab */
+  .zona-group{ margin-bottom:16px; }
+  .zona-group-title{ font-size:12.5px; font-weight:700; margin:0 0 4px; color:var(--accent); }
+  .zona-count{ font-size:12px; color:var(--ink-dim); margin:0 0 8px; }
+  .zona-sub{
+    font-size:11px; text-transform:uppercase; letter-spacing:.05em; font-weight:600;
+    color:var(--ink-dim); margin:10px 0 6px;
+  }
+  .zona-rubro-list{ display:flex; flex-direction:column; gap:1px; }
+  .zona-rubro-item{
+    font-size:13px; padding:7px 9px; border-radius:7px; cursor:pointer; line-height:1.4;
+  }
+  .zona-rubro-item:hover{ background:var(--accent-soft); color:var(--accent); }
+  .zona-rubro-note{ font-size:11px; color:var(--ink-dim); font-family:'IBM Plex Mono', monospace; }
+  .zona-note{ font-size:13px; color:var(--ink-dim); line-height:1.6; }
+
+  /* ranking tab */
+  .ranking-section{ margin-bottom:20px; }
+  .ranking-section h2{ font-size:13px; margin:0 0 4px; font-weight:600; }
+  .ranking-section .ranking-desc{ font-size:11.5px; color:var(--ink-dim); margin:0 0 10px; }
+  .ranking-row{ padding:8px 2px; cursor:pointer; border-radius:7px; }
+  .ranking-row:hover{ background:var(--accent-soft); }
+  .ranking-row:hover .ranking-name{ color:var(--accent); }
+  .ranking-row-top{ display:flex; justify-content:space-between; gap:8px; font-size:13px; margin-bottom:5px; }
+  .ranking-name{ line-height:1.35; }
+  .ranking-pct{ font-family:'IBM Plex Mono', monospace; font-weight:600; flex:none; }
+  .ranking-bar{ height:6px; border-radius:4px; background:var(--no-permitido); overflow:hidden; }
+  .ranking-bar span{ display:block; height:100%; background:var(--accent); }
+  .usopuntual-note{ font-size:12px; color:var(--ink-dim); line-height:1.6; }
+  .usopuntual-list{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .usopuntual-chip{
+    font-size:12px; padding:5px 10px; border-radius:999px; background:var(--bg);
+    border:1px solid var(--panel-border); cursor:pointer;
+  }
+  .usopuntual-chip:hover{ border-color:var(--accent); color:var(--accent); }
+
+  .map-wrap{
+    position:relative;
+    background:var(--map-bg);
+    overflow:hidden;
+    touch-action:none;
+  }
+  svg#mapa{ width:100%; height:100%; display:block; cursor:grab; }
+  svg#mapa:active{ cursor:grabbing; }
+  .zona-path{
+    stroke:var(--map-line);
+    stroke-width:0.6;
+    fill:var(--no-permitido);
+    transition:fill .12s ease;
+    cursor:pointer;
+  }
+  .zona-path.z-permitido{ fill:var(--permitido); }
+  .zona-path.z-restringido{ fill:var(--restringido); }
+  .zona-path.z-sincuadro{ fill:var(--sin-cuadro); }
+  .zona-path:hover{ filter:brightness(1.08); stroke-width:1.4; }
+  .zona-path.zona-selected{ stroke:var(--accent); stroke-width:2.4; }
+
+  .map-controls{
+    position:absolute; top:14px; right:14px; display:flex; flex-direction:column; gap:6px;
+  }
+  .map-controls button{
+    width:32px; height:32px; border-radius:8px; border:1px solid var(--panel-border);
+    background:var(--panel); color:var(--ink); font-size:17px; cursor:pointer;
+    box-shadow:var(--shadow);
+  }
+
+  .tooltip{
+    position:absolute; pointer-events:none; z-index:30;
+    background:var(--panel); color:var(--ink);
+    border:1px solid var(--panel-border); border-radius:8px;
+    padding:8px 11px; font-size:12.5px; line-height:1.5;
+    box-shadow:var(--shadow); max-width:240px; display:none;
+  }
+  .tooltip b{ font-family:'IBM Plex Mono', monospace; }
+
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb{ background:var(--panel-border); border-radius:6px; }
+</style>
+
+<div class="app">
+  <div class="panel">
+    <h1>Cuadro de Usos · San Isidro</h1>
+    <p class="subtitle">Datos del Anexo I (Cuadro de Usos, Art. 2.2.3.1) y de la cartografía de zonificación oficial del Partido de San Isidro.</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="rubro">Por rubro</button>
+      <button class="tab-btn" data-tab="zona">Por zona</button>
+      <button class="tab-btn" data-tab="ranking">Ranking</button>
+    </div>
+
+    <!-- TAB: RUBRO -->
+    <div class="tab-panel active" id="tab-rubro">
+      <label class="field-label" for="rubro-input">Rubro / actividad</label>
+      <div class="combo">
+        <input id="rubro-input" type="text" placeholder="Buscar o ver todos los rubros…" autocomplete="off">
+        <button class="clear-btn" id="clear-btn" title="Limpiar" hidden>&times;</button>
+        <div class="combo-list" id="combo-list"></div>
+      </div>
+      <p class="combo-hint">Hacé click en el campo (sin escribir nada) para ver el listado completo de los 196 rubros del Cuadro de Usos.</p>
+
+      <div id="empty-hint" class="empty-hint">
+        Todavía no elegiste un rubro. El mapa de la derecha muestra las zonas del partido; seleccioná un rubro arriba para colorearlas según dónde está permitido.
+      </div>
+
+      <div id="stats-card" class="stat-card" hidden>
+        <p class="stat-title" id="stat-title">—</p>
+        <div class="bar" id="bar">
+          <span class="b-ok" id="bar-ok"></span>
+          <span class="b-restr" id="bar-restr"></span>
+        </div>
+        <div class="legend-rows">
+          <div class="legend-row">
+            <span class="lbl"><span class="swatch" style="background:var(--permitido)"></span>Permitido sin restricción</span>
+            <span class="pct" id="pct-ok">0%</span>
+          </div>
+          <div class="legend-row">
+            <span class="lbl"><span class="swatch" style="background:var(--restringido)"></span>Permitido con restricción</span>
+            <span class="pct" id="pct-restr">0%</span>
+          </div>
+          <div class="legend-row">
+            <span class="lbl"><span class="swatch" style="background:var(--no-permitido)"></span>No permitido</span>
+            <span class="pct" id="pct-no">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="notes" class="notes" hidden>
+        <h2>Restricciones aplicables</h2>
+        <div id="notes-list"></div>
+      </div>
+    </div>
+
+    <!-- TAB: ZONA -->
+    <div class="tab-panel" id="tab-zona">
+      <label class="field-label" for="zona-input">Código de zona</label>
+      <div class="combo">
+        <input id="zona-input" type="text" placeholder="Buscar zona… (ej: Rm1, Cma3, Ca1)" autocomplete="off">
+        <button class="clear-btn" id="zona-clear-btn" title="Limpiar" hidden>&times;</button>
+        <div class="combo-list" id="zona-combo-list"></div>
+      </div>
+      <p class="combo-hint">O hacé click directamente sobre una zona en el mapa. Para buscar por dirección: hacé click en el mapa sobre el punto que te interesa (no es posible geolocalizar una dirección escrita dentro de esta página).</p>
+
+      <div id="zona-empty-hint" class="empty-hint">
+        Todavía no elegiste una zona. Hacé click en el mapa o buscá un código de zona arriba para ver qué rubros se pueden habilitar ahí.
+      </div>
+
+      <div id="zona-result" hidden>
+        <p class="stat-title" id="zona-title" style="font-size:15px;">—</p>
+        <div id="zona-body"></div>
+      </div>
+    </div>
+
+    <!-- TAB: RANKING -->
+    <div class="tab-panel" id="tab-ranking">
+      <div class="ranking-section">
+        <h2>Todos los rubros, de menor a mayor % de partido permitido</h2>
+        <p class="ranking-desc"><span id="ranking-count">—</span> rubros ordenados por porcentaje de superficie del partido donde están permitidos (sumando permitido + permitido con restricción). Excluye los evaluados exclusivamente caso por caso, listados aparte más abajo.</p>
+        <div id="ranking-full"></div>
+      </div>
+      <div class="ranking-section">
+        <h2>Evaluación caso por caso (Uso Puntual)</h2>
+        <p class="usopuntual-note">Estos rubros no tienen un % de superficie asociado: se evalúan puntualmente en cada caso, según Uso Puntual/Observaciones del Cuadro de Usos.</p>
+        <div class="usopuntual-list" id="usopuntual-list"></div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Fuente: Código de Ordenamiento Urbano, Municipalidad de San Isidro, Texto Ordenado 2022 (Decreto N° 2076), Anexo I – Art. 2.2.3.1. Zonas en violeta (al elegir un rubro): existen en la cartografía pero no tienen columna propia en el Cuadro de Usos (régimen particular en su Hoja de Zona). Extracción automatizada a verificar en casos límite.
+    </div>
+  </div>
+
+  <div class="map-wrap" id="map-wrap">
+    <svg id="mapa" viewBox="0 0 1000 834" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="map-controls">
+      <button id="zoom-in" title="Acercar">+</button>
+      <button id="zoom-out" title="Alejar">&minus;</button>
+      <button id="zoom-reset" title="Restablecer">&#8634;</button>
+    </div>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var svgNS = "http://www.w3.org/2000/svg";
+  var mapaData = null, svgData = null, zoneIndexData = null;
+  var svgEl = document.getElementById('mapa');
+  var tooltip = document.getElementById('tooltip');
+  var mapWrap = document.getElementById('map-wrap');
+  var selectedRubro = null;
+  var pathEls = []; // {el, f}
+  var zonaEstadoMap = {}; // zona code -> estado_normalizacion
+  var dragMoved = false;
+
+  function escapeHtml(s){ return String(s).replace(/[&<>]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+  function escapeAttr(s){ return escapeHtml(s).replace(/"/g, '&quot;'); }
+
+  function fetchJSON(path){
+    return fetch(path).then(function(r){
+      if(!r.ok) throw new Error('No se pudo cargar ' + path);
+      return r.json();
+    });
+  }
+
+  Promise.all([
+    fetchJSON('data/zonas_svg.json'),
+    fetchJSON('data/mapa_data.json'),
+    fetchJSON('data/zone_index.json')
+  ]).then(function(results){
+    svgData = results[0];
+    mapaData = results[1];
+    zoneIndexData = results[2];
+    buildMap();
+    buildCombo();
+    buildZonaCombo();
+    buildRanking();
+    setupTabs();
+  }).catch(function(err){
+    document.getElementById('empty-hint').textContent = 'Error cargando los datos del mapa: ' + err.message;
+  });
+
+  // ---- tabs ----
+  function setupTabs(){
+    document.querySelectorAll('.tab-btn').forEach(function(b){
+      b.addEventListener('click', function(){ switchTab(b.dataset.tab); });
+    });
+  }
+  function switchTab(name){
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === name); });
+    document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.toggle('active', p.id === 'tab-' + name); });
+  }
+
+  // ---- map ----
+  function buildMap(){
+    var vb = svgData.viewbox;
+    svgEl.setAttribute('viewBox', vb.join(' '));
+    var frag = document.createDocumentFragment();
+    svgData.features.forEach(function(f){
+      zonaEstadoMap[f.zona] = f.estado_normalizacion;
+      var p = document.createElementNS(svgNS, 'path');
+      p.setAttribute('d', f.d);
+      p.setAttribute('class', 'zona-path');
+      p.addEventListener('mousemove', function(e){ showTooltip(e, f); });
+      p.addEventListener('mouseleave', hideTooltip);
+      p.addEventListener('touchstart', function(e){ showTooltip(e.touches[0], f); }, {passive:true});
+      p.addEventListener('click', function(){
+        if(dragMoved) return;
+        onZonaClicked(f);
+      });
+      frag.appendChild(p);
+      pathEls.push({el:p, f:f});
+    });
+    svgEl.appendChild(frag);
+    setupPanZoom();
+  }
+
+  function estadoLabel(estado){
+    if(estado === 'permitido') return 'Permitido';
+    if(estado === 'permitido_con_restriccion') return 'Permitido con restricción';
+    return 'No permitido';
+  }
+
+  function showTooltip(evt, f){
+    var rect = mapWrap.getBoundingClientRect();
+    var x = evt.clientX - rect.left, y = evt.clientY - rect.top;
+    var html = '<b>' + f.zona_raw + '</b>';
+    if(f.radio) html += ' · radio ' + f.radio;
+    if(f.estado_normalizacion === 'sin_cuadro_de_usos'){
+      html += '<br>No está en el Cuadro de Usos (Hoja de Zona particular)';
+    } else if(selectedRubro){
+      var info = lookupEstado(selectedRubro, f);
+      html += '<br>' + estadoLabel(info.estado);
+      if(info.restricciones && info.restricciones.length){
+        html += ' — nota ' + info.restricciones.join(', ');
+      }
+    } else {
+      html += '<br>Click para ver los rubros habilitables acá';
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    var tw = 240, th = 70;
+    var left = x + 14, top = y + 14;
+    if(left + tw > rect.width) left = x - tw - 14;
+    if(top + th > rect.height) top = y - th - 14;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+  }
+  function hideTooltip(){ tooltip.style.display = 'none'; }
+
+  function lookupEstado(rubro, f){
+    var zonas = rubro.zonas;
+    if(f.zona === 'Cma3'){
+      var key = (f.radio === '2') ? 'Cma3 (Radio 2)' : 'Cma3 (otros radios)';
+      return zonas[key] || {estado:'no_permitido'};
+    }
+    return zonas[f.zona] || {estado:'no_permitido'};
+  }
+
+  function applyRubro(rubro){
+    selectedRubro = rubro;
+    pathEls.forEach(function(item){
+      var el = item.el, f = item.f;
+      el.classList.remove('z-permitido','z-restringido','z-sincuadro');
+      if(!rubro) return; // sin rubro elegido: relleno neutro para todas las zonas, incluidas las "sin cuadro"
+      if(f.estado_normalizacion === 'sin_cuadro_de_usos'){
+        el.classList.add('z-sincuadro');
+        return;
+      }
+      var info = lookupEstado(rubro, f);
+      if(info.estado === 'permitido') el.classList.add('z-permitido');
+      else if(info.estado === 'permitido_con_restriccion') el.classList.add('z-restringido');
+    });
+    updateStats(rubro);
+  }
+
+  function updateStats(rubro){
+    var emptyHint = document.getElementById('empty-hint');
+    var statsCard = document.getElementById('stats-card');
+    var notes = document.getElementById('notes');
+    if(!rubro){
+      emptyHint.hidden = false; statsCard.hidden = true; notes.hidden = true;
+      return;
+    }
+    emptyHint.hidden = true; statsCard.hidden = false;
+    document.getElementById('stat-title').textContent = rubro.rubro;
+    document.getElementById('bar-ok').style.width = rubro.pct_permitido + '%';
+    document.getElementById('bar-restr').style.width = rubro.pct_permitido_con_restriccion + '%';
+    document.getElementById('pct-ok').textContent = rubro.pct_permitido.toFixed(1) + '%';
+    document.getElementById('pct-restr').textContent = rubro.pct_permitido_con_restriccion.toFixed(1) + '%';
+    document.getElementById('pct-no').textContent = rubro.pct_no_permitido.toFixed(1) + '%';
+
+    var restrNums = new Set();
+    Object.keys(rubro.zonas).forEach(function(z){
+      var info = rubro.zonas[z];
+      if(info.restricciones) info.restricciones.forEach(function(n){ restrNums.add(n); });
+    });
+    if(rubro.uso_puntual_ref) rubro.uso_puntual_ref.forEach(function(n){ if(/^\d+$/.test(n)) restrNums.add(n); });
+    if(rubro.observaciones_ref) rubro.observaciones_ref.forEach(function(n){ if(/^\d+$/.test(n)) restrNums.add(n); });
+
+    var list = document.getElementById('notes-list');
+    if(restrNums.size === 0){
+      notes.hidden = true;
+    } else {
+      notes.hidden = false;
+      var nums = Array.from(restrNums).sort(function(a,b){return (+a)-(+b);});
+      list.innerHTML = nums.map(function(n){
+        var txt = mapaData.restricciones[n] || '(sin texto)';
+        return '<div class="note-item"><b>' + n + '.</b> ' + txt + '</div>';
+      }).join('');
+    }
+  }
+
+  function chooseRubro(rubro){
+    var input = document.getElementById('rubro-input');
+    var clearBtn = document.getElementById('clear-btn');
+    input.value = rubro ? rubro.rubro : '';
+    clearBtn.hidden = !rubro;
+    document.getElementById('combo-list').classList.remove('open');
+    applyRubro(rubro);
+  }
+
+  function selectRubroByName(name){
+    var r = mapaData.rubros.find(function(x){ return x.rubro === name; });
+    if(!r) return;
+    switchTab('rubro');
+    chooseRubro(r);
+  }
+
+  // ---- rubro combobox ----
+  function buildCombo(){
+    var input = document.getElementById('rubro-input');
+    var list = document.getElementById('combo-list');
+    var clearBtn = document.getElementById('clear-btn');
+    var items = mapaData.rubros.slice().sort(function(a,b){ return a.rubro.localeCompare(b.rubro, 'es'); });
+    var activeIdx = -1, filtered = [];
+
+    function render(query){
+      var q = (query||'').trim().toLowerCase();
+      filtered = !q ? items : items.filter(function(r){ return r.rubro.toLowerCase().indexOf(q) !== -1; });
+      if(filtered.length === 0){
+        list.innerHTML = '<div class="combo-empty">Sin resultados</div>';
+      } else {
+        list.innerHTML = filtered.map(function(r,i){
+          return '<div class="combo-item" data-idx="'+i+'">' + escapeHtml(r.rubro) + '</div>';
+        }).join('');
+      }
+      activeIdx = -1;
+      list.classList.add('open');
+    }
+
+    input.addEventListener('focus', function(){ render(input.value); });
+    input.addEventListener('input', function(){
+      render(input.value);
+      clearBtn.hidden = !input.value;
+    });
+    input.addEventListener('keydown', function(e){
+      var visible = list.querySelectorAll('.combo-item');
+      if(e.key === 'ArrowDown'){ e.preventDefault(); activeIdx = Math.min(activeIdx+1, visible.length-1); highlight(visible); }
+      else if(e.key === 'ArrowUp'){ e.preventDefault(); activeIdx = Math.max(activeIdx-1, 0); highlight(visible); }
+      else if(e.key === 'Enter'){ e.preventDefault(); if(activeIdx>=0 && filtered[activeIdx]) choose(filtered[activeIdx]); }
+      else if(e.key === 'Escape'){ list.classList.remove('open'); input.blur(); }
+    });
+    function highlight(visible){
+      visible.forEach(function(el,i){ el.classList.toggle('active', i===activeIdx); });
+      if(activeIdx>=0) visible[activeIdx].scrollIntoView({block:'nearest'});
+    }
+    list.addEventListener('mousedown', function(e){
+      var item = e.target.closest('.combo-item');
+      if(!item) return;
+      var idx = +item.dataset.idx;
+      choose(filtered[idx]);
+    });
+    document.addEventListener('click', function(e){
+      if(!e.target.closest('#tab-rubro .combo')) list.classList.remove('open');
+    });
+    clearBtn.addEventListener('click', function(){
+      input.value = ''; clearBtn.hidden = true; applyRubro(null); list.classList.remove('open'); input.focus();
+    });
+    function choose(rubro){
+      chooseRubro(rubro);
+    }
+  }
+
+  // ---- zona lookup / panel ----
+  function onZonaClicked(f){
+    switchTab('zona');
+    highlightZona(f.zona, f.radio);
+    document.getElementById('zona-input').value = f.zona;
+    document.getElementById('zona-clear-btn').hidden = false;
+    renderZonaPanel(f.zona, f.radio, f.zona_raw);
+  }
+
+  function highlightZona(zonaCode, radio){
+    pathEls.forEach(function(item){
+      var f2 = item.f;
+      var match;
+      if(!zonaCode) match = false;
+      else if(f2.zona !== zonaCode) match = false;
+      else if(zonaCode === 'Cma3' && radio) match = (radio === '2') ? (f2.radio === '2') : (f2.radio !== '2');
+      else match = true;
+      item.el.classList.toggle('zona-selected', match);
+    });
+  }
+
+  function renderZonaPanel(zonaCode, radio, rawLabel){
+    document.getElementById('zona-empty-hint').hidden = true;
+    document.getElementById('zona-result').hidden = false;
+    document.getElementById('zona-title').textContent = rawLabel || zonaCode;
+    var body = document.getElementById('zona-body');
+
+    if(zonaEstadoMap[zonaCode] === 'sin_cuadro_de_usos'){
+      body.innerHTML = '<p class="zona-note">Esta zona (' + escapeHtml(zonaCode) + ') no tiene columna propia en el Cuadro de Usos: se rige por su propia Hoja de Zona (régimen particular). Consultar el texto completo del Código de Ordenamiento Urbano para esta zona.</p>';
+      return;
+    }
+
+    var groups = [];
+    if(zonaCode === 'Cma3'){
+      if(radio === '2') groups.push({label:'Cma3 · Radio 2', key:'Cma3 (Radio 2)'});
+      else if(radio) groups.push({label:'Cma3 · otros radios', key:'Cma3 (otros radios)'});
+      else {
+        groups.push({label:'Cma3 · Radio 2', key:'Cma3 (Radio 2)'});
+        groups.push({label:'Cma3 · otros radios', key:'Cma3 (otros radios)'});
+      }
+    } else {
+      groups.push({label: zonaCode, key: zonaCode});
+    }
+
+    var html = '';
+    groups.forEach(function(g){
+      var items = zoneIndexData.zone_index[g.key] || [];
+      var ok = items.filter(function(x){ return x.estado === 'permitido'; });
+      var restr = items.filter(function(x){ return x.estado === 'permitido_con_restriccion'; });
+      html += '<div class="zona-group">';
+      if(groups.length > 1) html += '<h3 class="zona-group-title">' + escapeHtml(g.label) + '</h3>';
+      html += '<p class="zona-count">' + items.length + ' rubro' + (items.length===1?'':'s') + ' habilitable' + (items.length===1?'':'s') + ' en esta zona</p>';
+      if(ok.length){
+        html += '<h4 class="zona-sub">Permitido sin restricción (' + ok.length + ')</h4><div class="zona-rubro-list">' +
+          ok.map(function(x){ return '<div class="zona-rubro-item" data-rubro="'+escapeAttr(x.rubro)+'">' + escapeHtml(x.rubro) + '</div>'; }).join('') + '</div>';
+      }
+      if(restr.length){
+        html += '<h4 class="zona-sub">Permitido con restricción (' + restr.length + ')</h4><div class="zona-rubro-list">' +
+          restr.map(function(x){
+            var notaTxt = (x.restricciones && x.restricciones.length) ? ' <span class="zona-rubro-note">nota ' + x.restricciones.join(', ') + '</span>' : '';
+            return '<div class="zona-rubro-item" data-rubro="'+escapeAttr(x.rubro)+'">' + escapeHtml(x.rubro) + notaTxt + '</div>';
+          }).join('') + '</div>';
+      }
+      if(!ok.length && !restr.length){
+        html += '<p class="zona-note">Ningún rubro del Cuadro de Usos figura habilitado en esta zona por superficie (puede haber usos puntuales evaluados caso por caso).</p>';
+      }
+      html += '</div>';
+    });
+    body.innerHTML = html;
+  }
+
+  document.addEventListener('click', function(e){
+    var item = e.target.closest('#zona-body .zona-rubro-item');
+    if(item) selectRubroByName(item.dataset.rubro);
+  });
+
+  // ---- zona combobox ----
+  function buildZonaCombo(){
+    var input = document.getElementById('zona-input');
+    var list = document.getElementById('zona-combo-list');
+    var clearBtn = document.getElementById('zona-clear-btn');
+    var items = zoneIndexData.zonas_reales.slice();
+    var activeIdx = -1, filtered = [];
+
+    function render(query){
+      var q = (query||'').trim().toLowerCase();
+      filtered = !q ? items : items.filter(function(z){ return z.toLowerCase().indexOf(q) !== -1; });
+      list.innerHTML = filtered.length ? filtered.map(function(z,i){
+        return '<div class="combo-item" data-idx="'+i+'">' + escapeHtml(z) + '</div>';
+      }).join('') : '<div class="combo-empty">Sin resultados</div>';
+      activeIdx = -1;
+      list.classList.add('open');
+    }
+
+    input.addEventListener('focus', function(){ render(input.value); });
+    input.addEventListener('input', function(){ render(input.value); clearBtn.hidden = !input.value; });
+    input.addEventListener('keydown', function(e){
+      var visible = list.querySelectorAll('.combo-item');
+      if(e.key === 'ArrowDown'){ e.preventDefault(); activeIdx = Math.min(activeIdx+1, visible.length-1); hl(visible); }
+      else if(e.key === 'ArrowUp'){ e.preventDefault(); activeIdx = Math.max(activeIdx-1, 0); hl(visible); }
+      else if(e.key === 'Enter'){ e.preventDefault(); if(activeIdx>=0 && filtered[activeIdx]) chooseZona(filtered[activeIdx]); }
+      else if(e.key === 'Escape'){ list.classList.remove('open'); input.blur(); }
+    });
+    function hl(visible){
+      visible.forEach(function(el,i){ el.classList.toggle('active', i===activeIdx); });
+      if(activeIdx>=0) visible[activeIdx].scrollIntoView({block:'nearest'});
+    }
+    list.addEventListener('mousedown', function(e){
+      var item = e.target.closest('.combo-item');
+      if(!item) return;
+      chooseZona(filtered[+item.dataset.idx]);
+    });
+    document.addEventListener('click', function(e){
+      if(!e.target.closest('#tab-zona .combo')) list.classList.remove('open');
+    });
+    clearBtn.addEventListener('click', function(){
+      input.value = ''; clearBtn.hidden = true; list.classList.remove('open'); input.focus();
+      document.getElementById('zona-result').hidden = true;
+      document.getElementById('zona-empty-hint').hidden = false;
+      highlightZona(null, null);
+    });
+    function chooseZona(zonaCode){
+      input.value = zonaCode; clearBtn.hidden = false; list.classList.remove('open');
+      highlightZona(zonaCode, null);
+      renderZonaPanel(zonaCode, null, zonaCode);
+    }
+  }
+
+  // ---- ranking ----
+  function rankingRowHtml(r){
+    return '<div class="ranking-row" data-rubro="'+escapeAttr(r.rubro)+'">' +
+      '<div class="ranking-row-top"><span class="ranking-name">'+escapeHtml(r.rubro)+'</span><span class="ranking-pct">'+r.pct_total.toFixed(1)+'%</span></div>' +
+      '<div class="ranking-bar"><span style="width:'+Math.min(r.pct_total,100)+'%"></span></div>' +
+    '</div>';
+  }
+  function buildRanking(){
+    var full = zoneIndexData.ranking_completo.slice().sort(function(a,b){ return a.pct_total - b.pct_total; });
+    document.getElementById('ranking-count').textContent = full.length;
+    document.getElementById('ranking-full').innerHTML = full.map(rankingRowHtml).join('');
+    document.getElementById('usopuntual-list').innerHTML = zoneIndexData.uso_puntual_caso_por_caso.map(function(name){
+      return '<div class="usopuntual-chip" data-rubro="'+escapeAttr(name)+'">'+escapeHtml(name)+'</div>';
+    }).join('');
+    document.querySelectorAll('.ranking-row, .usopuntual-chip').forEach(function(el){
+      el.addEventListener('click', function(){ selectRubroByName(el.dataset.rubro); });
+    });
+  }
+
+  // ---- pan & zoom ----
+  function setupPanZoom(){
+    var vb = svgData.viewbox.slice();
+    var view = {x:vb[0], y:vb[1], w:vb[2], h:vb[3]};
+    var home = {x:vb[0], y:vb[1], w:vb[2], h:vb[3]};
+    function apply(){ svgEl.setAttribute('viewBox', view.x+' '+view.y+' '+view.w+' '+view.h); }
+
+    function zoomAt(factor, cx, cy){
+      var nw = view.w * factor, nh = view.h * factor;
+      nw = Math.max(home.w*0.08, Math.min(home.w*1.6, nw));
+      nh = nw * (view.h/view.w);
+      view.x = cx - (cx - view.x) * (nw/view.w);
+      view.y = cy - (cy - view.y) * (nh/view.h);
+      view.w = nw; view.h = nh;
+      apply();
+    }
+    document.getElementById('zoom-in').addEventListener('click', function(){ zoomAt(0.8, view.x+view.w/2, view.y+view.h/2); });
+    document.getElementById('zoom-out').addEventListener('click', function(){ zoomAt(1.25, view.x+view.w/2, view.y+view.h/2); });
+    document.getElementById('zoom-reset').addEventListener('click', function(){ view = {x:home.x,y:home.y,w:home.w,h:home.h}; apply(); });
+
+    function toSvgPoint(clientX, clientY){
+      var rect = svgEl.getBoundingClientRect();
+      var px = (clientX - rect.left) / rect.width;
+      var py = (clientY - rect.top) / rect.height;
+      return { x: view.x + px*view.w, y: view.y + py*view.h };
+    }
+
+    svgEl.addEventListener('wheel', function(e){
+      e.preventDefault();
+      var pt = toSvgPoint(e.clientX, e.clientY);
+      zoomAt(e.deltaY > 0 ? 1.12 : 0.89, pt.x, pt.y);
+    }, {passive:false});
+
+    var dragging = false, last = null;
+    svgEl.addEventListener('mousedown', function(e){ dragging = true; dragMoved = false; last = {x:e.clientX, y:e.clientY}; });
+    window.addEventListener('mousemove', function(e){
+      if(!dragging) return;
+      var rect = svgEl.getBoundingClientRect();
+      var dx = (e.clientX - last.x) / rect.width * view.w;
+      var dy = (e.clientY - last.y) / rect.height * view.h;
+      if(Math.abs(e.clientX-last.x) > 2 || Math.abs(e.clientY-last.y) > 2) dragMoved = true;
+      view.x -= dx; view.y -= dy;
+      last = {x:e.clientX, y:e.clientY};
+      apply();
+    });
+    window.addEventListener('mouseup', function(){ dragging = false; });
+
+    // basic touch pan/pinch
+    var touchState = null;
+    svgEl.addEventListener('touchstart', function(e){
+      if(e.touches.length === 1){ touchState = {mode:'pan', x:e.touches[0].clientX, y:e.touches[0].clientY}; }
+      else if(e.touches.length === 2){
+        var d = dist(e.touches[0], e.touches[1]);
+        touchState = {mode:'pinch', d:d};
+      }
+    }, {passive:true});
+    svgEl.addEventListener('touchmove', function(e){
+      if(!touchState) return;
+      if(touchState.mode === 'pan' && e.touches.length === 1){
+        var rect = svgEl.getBoundingClientRect();
+        var dx = (e.touches[0].clientX - touchState.x) / rect.width * view.w;
+        var dy = (e.touches[0].clientY - touchState.y) / rect.height * view.h;
+        view.x -= dx; view.y -= dy;
+        touchState.x = e.touches[0].clientX; touchState.y = e.touches[0].clientY;
+        apply();
+      } else if(touchState.mode === 'pinch' && e.touches.length === 2){
+        var nd = dist(e.touches[0], e.touches[1]);
+        var factor = touchState.d / nd;
+        var midX = (e.touches[0].clientX + e.touches[1].clientX)/2;
+        var midY = (e.touches[0].clientY + e.touches[1].clientY)/2;
+        var pt = toSvgPoint(midX, midY);
+        zoomAt(factor, pt.x, pt.y);
+        touchState.d = nd;
+      }
+    }, {passive:true});
+    svgEl.addEventListener('touchend', function(){ touchState = null; });
+    function dist(a,b){ return Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY); }
+  }
+})();
+</script>
