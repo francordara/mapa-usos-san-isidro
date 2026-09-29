@@ -189,6 +189,40 @@
   .addr-status.warn{ background:var(--restringido-bg); color:var(--restringido); border-color:transparent; }
   .addr-status.err{ background:var(--bg); color:var(--ink-dim); }
 
+  /* consulta tab */
+  .text-field{
+    width:100%; font-family:inherit; font-size:14.5px; padding:11px 13px;
+    border-radius:10px; border:1px solid var(--panel-border);
+    background:var(--bg); color:var(--ink); outline:none; margin-bottom:16px;
+  }
+  .text-field:focus{ border-color:var(--accent); }
+  .btn-primary{
+    width:100%; font-family:inherit; font-size:14.5px; font-weight:700; padding:13px;
+    border-radius:10px; border:none; background:var(--accent); color:var(--accent-ink);
+    cursor:pointer; margin-bottom:20px;
+  }
+  .btn-primary:hover:not(:disabled){ opacity:.9; }
+  .btn-primary:disabled{ opacity:.4; cursor:not-allowed; }
+  .consulta-verdict{
+    border-radius:14px; padding:16px 18px; margin-bottom:14px;
+  }
+  .consulta-verdict.v-si{ background:var(--permitido-bg); }
+  .consulta-verdict.v-restr{ background:var(--restringido-bg); }
+  .consulta-verdict.v-no{ background:var(--no-permitido); }
+  .consulta-verdict.v-info{ background:var(--bg); border:1px dashed var(--panel-border); }
+  .consulta-verdict-addr{
+    font-size:11.5px; color:var(--ink-dim); font-family:'IBM Plex Mono', monospace;
+    margin:0 0 6px; text-transform:uppercase; letter-spacing:.02em;
+  }
+  .consulta-verdict-title{
+    font-family:'Fraunces', serif; font-size:19px; font-weight:600; margin:0 0 6px; line-height:1.25;
+  }
+  .consulta-verdict.v-si .consulta-verdict-title{ color:var(--permitido); }
+  .consulta-verdict.v-restr .consulta-verdict-title{ color:var(--restringido); }
+  .consulta-verdict-sub{ font-size:13px; color:var(--ink-dim); line-height:1.5; margin:0; }
+  .consulta-link{ font-size:12px; color:var(--ink-dim); line-height:1.6; }
+  .consulta-link a{ color:var(--accent); cursor:pointer; }
+
   .stat-card{
     background:var(--bg);
     border:1px solid var(--panel-border);
@@ -318,13 +352,33 @@
     <p class="subtitle">Datos del Anexo I (Cuadro de Usos, Art. 2.2.3.1) y de la cartografía de zonificación oficial del Partido de San Isidro.</p>
 
     <div class="tabs">
-      <button class="tab-btn active" data-tab="rubro">Por rubro</button>
+      <button class="tab-btn active" data-tab="consulta">¿Se puede?</button>
+      <button class="tab-btn" data-tab="rubro">Por rubro</button>
       <button class="tab-btn" data-tab="zona">Por zona</button>
       <button class="tab-btn" data-tab="ranking">Ranking</button>
     </div>
 
+    <!-- TAB: CONSULTA -->
+    <div class="tab-panel active" id="tab-consulta">
+      <p class="subtitle" style="margin-top:-6px;">Poné una dirección y un rubro, y te decimos si se puede habilitar ahí.</p>
+
+      <label class="field-label" for="consulta-addr-input">Dirección</label>
+      <input id="consulta-addr-input" class="text-field" type="text" placeholder="Calle y altura, ej: Av. del Libertador 15000" autocomplete="off">
+
+      <label class="field-label" for="consulta-rubro-input">Rubro / actividad</label>
+      <div class="combo">
+        <input id="consulta-rubro-input" type="text" placeholder="Buscar o ver todos los rubros…" autocomplete="off">
+        <button class="clear-btn" id="consulta-clear-btn" title="Limpiar" hidden>&times;</button>
+        <div class="combo-list" id="consulta-combo-list"></div>
+      </div>
+
+      <button id="consulta-btn" class="btn-primary" type="button" disabled>Consultar</button>
+
+      <div id="consulta-result"></div>
+    </div>
+
     <!-- TAB: RUBRO -->
-    <div class="tab-panel active" id="tab-rubro">
+    <div class="tab-panel" id="tab-rubro">
       <label class="field-label" for="rubro-input">Rubro / actividad</label>
       <div class="combo">
         <input id="rubro-input" type="text" placeholder="Buscar o ver todos los rubros…" autocomplete="off">
@@ -436,6 +490,8 @@
   var mapGoTo = null; // set by setupPanZoom
   var addrMarkerEl = null;
   var geoProj = null; // {minx, miny, scale, targetH}
+  var consultaRubro = null;
+  var lastConsultaFeature = null;
 
   // Local equirectangular projection, must match the one used to pre-project the SVG
   // (project_svg.py) so lon/lat -> SVG coordinates line up with the drawn polygons.
@@ -466,11 +522,13 @@
     geoData = results[3];
     buildMap();
     buildCombo();
+    buildConsultaCombo();
     buildZonaCombo();
     buildRanking();
     setupTabs();
     setupAddressSearch();
     computeGeoProjection();
+    setupConsulta();
   }).catch(function(err){
     document.getElementById('empty-hint').textContent = 'Error cargando los datos del mapa: ' + err.message;
   });
@@ -679,6 +737,161 @@
     });
     function choose(rubro){
       chooseRubro(rubro);
+    }
+  }
+
+  // ---- consulta combobox (dirección + rubro) ----
+  function updateConsultaBtn(){
+    var addr = document.getElementById('consulta-addr-input').value.trim();
+    document.getElementById('consulta-btn').disabled = !(addr && consultaRubro);
+  }
+
+  function buildConsultaCombo(){
+    var input = document.getElementById('consulta-rubro-input');
+    var list = document.getElementById('consulta-combo-list');
+    var clearBtn = document.getElementById('consulta-clear-btn');
+    var items = mapaData.rubros.slice().sort(function(a,b){ return a.rubro.localeCompare(b.rubro, 'es'); });
+    var activeIdx = -1, filtered = [];
+
+    function render(query){
+      var q = (query||'').trim().toLowerCase();
+      filtered = !q ? items : items.filter(function(r){ return r.rubro.toLowerCase().indexOf(q) !== -1; });
+      list.innerHTML = filtered.length ? filtered.map(function(r,i){
+        return '<div class="combo-item" data-idx="'+i+'">' + escapeHtml(r.rubro) + '</div>';
+      }).join('') : '<div class="combo-empty">Sin resultados</div>';
+      activeIdx = -1;
+      list.classList.add('open');
+    }
+    function setRubro(r){
+      consultaRubro = r;
+      clearBtn.hidden = !r;
+      updateConsultaBtn();
+    }
+    input.addEventListener('focus', function(){ render(input.value); });
+    input.addEventListener('input', function(){ render(input.value); setRubro(null); });
+    input.addEventListener('keydown', function(e){
+      var visible = list.querySelectorAll('.combo-item');
+      if(e.key === 'ArrowDown'){ e.preventDefault(); activeIdx = Math.min(activeIdx+1, visible.length-1); hl(visible); }
+      else if(e.key === 'ArrowUp'){ e.preventDefault(); activeIdx = Math.max(activeIdx-1, 0); hl(visible); }
+      else if(e.key === 'Enter'){ e.preventDefault(); if(activeIdx>=0 && filtered[activeIdx]) choose(filtered[activeIdx]); }
+      else if(e.key === 'Escape'){ list.classList.remove('open'); input.blur(); }
+    });
+    function hl(visible){
+      visible.forEach(function(el,i){ el.classList.toggle('active', i===activeIdx); });
+      if(activeIdx>=0) visible[activeIdx].scrollIntoView({block:'nearest'});
+    }
+    list.addEventListener('mousedown', function(e){
+      var item = e.target.closest('.combo-item');
+      if(!item) return;
+      choose(filtered[+item.dataset.idx]);
+    });
+    document.addEventListener('click', function(e){
+      if(!e.target.closest('#tab-consulta .combo')) list.classList.remove('open');
+    });
+    clearBtn.addEventListener('click', function(){
+      input.value = ''; list.classList.remove('open'); input.focus();
+      setRubro(null);
+    });
+    function choose(rubro){
+      input.value = rubro.rubro; list.classList.remove('open');
+      setRubro(rubro);
+    }
+  }
+
+  function renderConsultaVerdict(f, rubro, direccionTxt){
+    var addrLine = '<p class="consulta-verdict-addr">' + escapeHtml(direccionTxt) + '</p>';
+    if(!f){
+      return '<div class="consulta-verdict v-info">' + addrLine +
+        '<p class="consulta-verdict-title">No pudimos ubicar esa dirección dentro de las zonas mapeadas</p>' +
+        '<p class="consulta-verdict-sub">Puede estar fuera del Partido de San Isidro o en un área sin cartografía cargada.</p></div>';
+    }
+    var p = f.properties;
+    if(p.estado_normalizacion === 'sin_cuadro_de_usos'){
+      return '<div class="consulta-verdict v-info">' + addrLine +
+        '<p class="consulta-verdict-title">Zona ' + escapeHtml(p.zona) + ': sin columna en el Cuadro de Usos</p>' +
+        '<p class="consulta-verdict-sub">Esta zona se rige por su propia Hoja de Zona particular del Código de Ordenamiento Urbano; no hay una respuesta automática para &ldquo;' + escapeHtml(rubro.rubro) + '&rdquo; acá.</p></div>';
+    }
+    if(p.estado_normalizacion === 'no_identificado'){
+      return '<div class="consulta-verdict v-info">' + addrLine +
+        '<p class="consulta-verdict-title">Zona ' + escapeHtml(p.zona) + ': código ambiguo en la cartografía</p>' +
+        '<p class="consulta-verdict-sub">No pudimos asociar esta zona con certeza a una columna del Cuadro de Usos.</p></div>';
+    }
+    var info = lookupEstado(rubro, p);
+    var cls, title, sub;
+    if(info.estado === 'permitido'){
+      cls = 'v-si'; title = 'Sí, se puede habilitar';
+      sub = '"' + rubro.rubro + '" está permitido sin restricciones en la zona ' + p.zona + '.';
+    } else if(info.estado === 'permitido_con_restriccion'){
+      cls = 'v-restr'; title = 'Se puede, con restricciones';
+      sub = '"' + rubro.rubro + '" está permitido en la zona ' + p.zona + ', sujeto a las restricciones indicadas abajo.';
+    } else {
+      cls = 'v-no'; title = 'No se puede habilitar';
+      sub = '"' + rubro.rubro + '" no figura permitido en la zona ' + p.zona + '.';
+    }
+    var html = '<div class="consulta-verdict ' + cls + '">' + addrLine +
+      '<p class="consulta-verdict-title">' + escapeHtml(title) + '</p>' +
+      '<p class="consulta-verdict-sub">' + escapeHtml(sub) + '</p></div>';
+    if(info.estado === 'permitido_con_restriccion' && info.restricciones && info.restricciones.length){
+      var nums = info.restricciones.slice().sort(function(a,b){return (+a)-(+b);});
+      html += '<div class="notes"><h2>Restricciones aplicables</h2><div>' +
+        nums.map(function(n){
+          var txt = mapaData.restricciones[n] || '(sin texto)';
+          return '<div class="note-item"><b>' + n + '.</b> ' + escapeHtml(txt) + '</div>';
+        }).join('') + '</div></div>';
+    }
+    html += '<p class="consulta-link">¿Querés ver todos los rubros habilitables en zona ' + escapeHtml(p.zona) + '? <a id="consulta-ver-zona">Ver detalle de la zona</a></p>';
+    return html;
+  }
+
+  function setupConsulta(){
+    var addrInput = document.getElementById('consulta-addr-input');
+    var btn = document.getElementById('consulta-btn');
+    var resultEl = document.getElementById('consulta-result');
+    var origLabel = btn.textContent;
+
+    addrInput.addEventListener('input', updateConsultaBtn);
+    addrInput.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); if(!btn.disabled) runConsulta(); } });
+    btn.addEventListener('click', runConsulta);
+
+    document.addEventListener('click', function(e){
+      if(e.target && e.target.id === 'consulta-ver-zona'){
+        e.preventDefault();
+        if(lastConsultaFeature) onZonaClicked(lastConsultaFeature.properties);
+      }
+    });
+
+    function runConsulta(){
+      var direccion = addrInput.value.trim();
+      var rubro = consultaRubro;
+      if(!direccion || !rubro) return;
+      btn.disabled = true;
+      btn.textContent = 'Consultando…';
+      resultEl.innerHTML = '';
+      geocodeDireccion(direccion).then(function(dir){
+        var lat = dir.ubicacion.lat, lon = dir.ubicacion.lon;
+        var pt = lonLatToSvg(lon, lat);
+        addrMarkerEl.setAttribute('cx', pt.x);
+        addrMarkerEl.setAttribute('cy', pt.y);
+        addrMarkerEl.style.display = 'block';
+        if(mapGoTo) mapGoTo(pt.x, pt.y);
+        var f = findFeatureAt(lon, lat);
+        if(f) highlightZona(f.properties.zona, f.properties.radio); else highlightZona(null, null);
+        lastConsultaFeature = f;
+        var direccionTxt = dir.nomenclatura || direccion;
+        resultEl.innerHTML = renderConsultaVerdict(f, rubro, direccionTxt);
+      }).catch(function(err){
+        var msg;
+        if(err.message === 'SIN_RESULTADOS'){
+          msg = 'No se encontró esa dirección en San Isidro. Probá con el formato "Calle Altura", ej: "Av. del Libertador 15000".';
+        } else {
+          msg = 'No se pudo consultar el servicio de direcciones (' + err.message + '). Si estás viendo esto en la vista previa de Claude, es esperado: esta función solo funciona una vez publicada la página (por ejemplo en GitHub Pages), porque el entorno de vista previa bloquea llamadas a servicios externos.';
+        }
+        resultEl.innerHTML = '<div class="consulta-verdict v-info"><p class="consulta-verdict-title">No pudimos verificar la dirección</p><p class="consulta-verdict-sub">' + escapeHtml(msg) + '</p></div>';
+      }).then(function(){
+        btn.disabled = false;
+        btn.textContent = origLabel;
+        updateConsultaBtn();
+      });
     }
   }
 
